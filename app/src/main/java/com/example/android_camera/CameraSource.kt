@@ -3,9 +3,11 @@ package com.example.android_camera
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.graphics.Rect
+import android.graphics.YuvImage
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
@@ -18,9 +20,8 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.google.android.renderscript.Toolkit
-import com.google.android.renderscript.YuvFormat
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.io.ByteArrayOutputStream
 import java.util.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -107,19 +108,22 @@ class CameraSource(
 
             if (image != null) {
                 val imageBA = imageToByteArray(image)
-                var imageBitmap = Toolkit.yuvToRgbBitmap(imageBA, image.cropRect.width(), image.cropRect.height(), YuvFormat.NV21)
-
+                var imageBitmap = convertYuvToBitmap(imageBA, image.cropRect.width(), image.cropRect.height())
                 // Create rotated version for portrait display
                 val transMatrix = Matrix()
                 if (cameraFacing == CameraCharacteristics.LENS_FACING_FRONT)
                     transMatrix.postScale(-1f, 1f)
                 transMatrix.postRotate(90.0f)
 
-                imageBitmap = Bitmap.createBitmap(
-                    imageBitmap, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT,
-                    transMatrix, false
-                )
-                listener.processImage(imageBitmap)
+                imageBitmap = imageBitmap?.let {
+                    Bitmap.createBitmap(
+                        it, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT,
+                        transMatrix, false
+                    )
+                }
+                if (imageBitmap != null) {
+                    listener.processImage(imageBitmap)
+                }
                 framesCount++
                 image.close()
             }
@@ -146,6 +150,18 @@ class CameraSource(
                 })
             camera?.createCaptureSession(sessionConfiguration)
         }
+    }
+
+    private fun convertYuvToBitmap(yuvData: ByteArray, width: Int, height: Int): Bitmap? {
+        val yuvImage = YuvImage(yuvData, ImageFormat.NV21, width, height, null)
+        val byteArrayOutputStream = ByteArrayOutputStream()
+
+        // Compress YUV image to JPEG format
+        yuvImage.compressToJpeg(Rect(0, 0, width, height), 100, byteArrayOutputStream)
+
+        // Convert JPEG data to Bitmap
+        val jpegData = byteArrayOutputStream.toByteArray()
+        return BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
     }
 
     fun closeCamera() {

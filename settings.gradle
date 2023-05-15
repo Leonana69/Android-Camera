@@ -14,4 +14,3 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Android-Camera"
 include ':app'
-include ':renderscript-toolkit'
