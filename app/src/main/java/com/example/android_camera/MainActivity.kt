@@ -51,8 +51,7 @@ class MainActivity : AppCompatActivity() {
             registerForActivityResult(
                 ActivityResultContracts.RequestPermission()
             ) { isGranted: Boolean ->
-                if (isGranted) {
-                } else {
+                if (!isGranted) {
                     Toast.makeText(this, "Request camera permission failed", Toast.LENGTH_SHORT).show()
                 }
             }
